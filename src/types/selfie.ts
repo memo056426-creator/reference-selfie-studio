@@ -1,7 +1,6 @@
 import type {
   BiomechanicsSolution,
   LockedFieldConflict,
-  MirrorPoseCategoryId,
 } from '../utils/physicsEngine';
 
 export type WorkflowMode = 'strict_editing' | 'scene_builder' | 'mirror_studio';
