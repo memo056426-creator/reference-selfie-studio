@@ -66,6 +66,76 @@ import {
 } from './promptRules';
 
 describe('Prompt Generation Utils', () => {
+  it('rejects mirror output that loses or swaps the selected physical phone hand', () => {
+    const selections: SelfieSelections = {
+      ...DEFAULT_SELECTIONS,
+      workflowMode: 'mirror_studio',
+      selfieType: 'mirror',
+      phoneHand: 'right_hand',
+      mirrorPhonePosition: 'chest_level',
+      mirrorTorsoOrientation: 'facing_mirror',
+    };
+    const baseline = JSON.parse(buildMirrorStudioJsonPrompt(selections));
+    expect(validatePromptOutput(JSON.stringify(baseline), selections).valid).toBe(true);
+
+    const missingPose = { ...baseline };
+    delete missingPose.POSE_COMPOSITION;
+    expect(validatePromptOutput(JSON.stringify(missingPose), selections).valid).toBe(false);
+
+    const wrongHand = {
+      ...baseline,
+      POSE_COMPOSITION: { ...baseline.POSE_COMPOSITION, phone_hand: 'left_hand' },
+    };
+    expect(validatePromptOutput(JSON.stringify(wrongHand), selections).valid).toBe(false);
+
+    const wrongHoldingArm = {
+      ...baseline,
+      POSE_COMPOSITION: {
+        ...baseline.POSE_COMPOSITION,
+        anatomical_hand_mechanics: 'holding a single smartphone in the anatomical left hand',
+      },
+    };
+    expect(validatePromptOutput(JSON.stringify(wrongHoldingArm), selections).valid).toBe(false);
+
+    const swappedReflection = {
+      ...baseline,
+      POSE_COMPOSITION: {
+        ...baseline.POSE_COMPOSITION,
+        mirror_reflection_side: 'anatomical left arm as the phone-holding side and anatomical right arm as the free side',
+      },
+    };
+    expect(validatePromptOutput(JSON.stringify(swappedReflection), selections).valid).toBe(false);
+
+    const wrongPhoneHeight = {
+      ...baseline,
+      POSE_COMPOSITION: { ...baseline.POSE_COMPOSITION, phone_position: 'eye_level' },
+    };
+    expect(validatePromptOutput(JSON.stringify(wrongPhoneHeight), selections).valid).toBe(false);
+  });
+
+  it('rejects explicit facial redesign instructions even if the reference-preservation rule is also present', () => {
+    const selections: SelfieSelections = {
+      ...DEFAULT_SELECTIONS,
+      workflowMode: 'mirror_studio',
+      selfieType: 'mirror',
+    };
+    const baseline = JSON.parse(buildMirrorStudioJsonPrompt(selections));
+    const alteredIdentity = {
+      ...baseline,
+      GEMINI_EXECUTION_RULE:
+        baseline.GEMINI_EXECUTION_RULE +
+        ' Replace the reference face with a different person\'s face and reshape the nose.',
+    };
+    expect(validatePromptOutput(JSON.stringify(alteredIdentity), selections).valid).toBe(false);
+    const outcome = resolveValidatedPromptOrFallback(
+      JSON.stringify(alteredIdentity),
+      selections,
+      0
+    );
+    expect(outcome.source).toBe('deterministic');
+    expect(outcome.prompt).toContain(REFERENCE_FACE_PRESERVATION_RULE);
+  });
+
   it('keeps seated surfaces, props, and floor contacts physically consistent', () => {
     const bookOnBed = solveBiomechanicsAndPhysics({
       ...DEFAULT_SELECTIONS,
