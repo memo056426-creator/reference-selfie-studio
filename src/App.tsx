@@ -687,15 +687,15 @@ export default function App() {
             </div>
           </section>
 
-          {/* Workflow Mode Switcher with Identity Lock Precision Indicators */}
+          {/* Workflow modes describe instructions, not guaranteed biometric identity locks. */}
           <div className="space-y-2.5 pt-1">
             <div className="flex flex-wrap items-center justify-between gap-2 px-1">
               <div className="inline-flex items-center gap-1.5 text-xs font-bold text-stone-800 dark:text-stone-200">
                 <Lock className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                <span>مؤشر دقة تثبيت الملامح (Identity Lock) حسب نمط العمل:</span>
+                <span>مستويات تعليمات حماية الوجه — دون ضمان تطابق آلي:</span>
               </div>
               <span className="text-[11px] text-stone-500 dark:text-stone-400">
-                اختر <strong className="text-emerald-700 dark:text-emerald-400">التعديل الصارم</strong> أو <strong className="text-[#ff6600]">استوديو المرآة (JSON)</strong> لأعلى التزام بالقيود المرجعية للبنية الوجهية
+                اختر النمط المناسب؛ جميعها توجّه النموذج للحفاظ على الملامح، ولا تقيس الهوية في الصورة الناتجة.
               </span>
             </div>
 
@@ -721,7 +721,7 @@ export default function App() {
                   <div className="flex items-center justify-between gap-2">
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
                       <Lock className="w-3 h-3 shrink-0" />
-                      <span>دقة قصوى</span>
+                      <span>تعليمات حماية الوجه</span>
                     </span>
                     <span className="text-[10px] font-mono-num font-semibold text-emerald-700 dark:text-emerald-400">
                       القواعد 01–12
@@ -735,31 +735,15 @@ export default function App() {
                         وضع التعديل الصارم للصورة المرجعية (القواعد 01–12)
                       </div>
                       <p className="text-[11px] text-stone-600 dark:text-stone-400 mt-0.5 leading-relaxed">
-                        حفظ صارم للهوية والملامح، إضاءة غرفة مظلمة حصريًا (MODE A شاشة الهاتف أو MODE B فلاش المرآة)، وتلوين الملابس السفلية فقط.
+                        قواعد تعديل تحافظ على تفاصيل الوجه قدر الإمكان، مع إعدادات الإضاءة الحصرية وتعديل الملابس دون استهداف ملامح الوجه.
                       </p>
                     </div>
                   </div>
                 </div>
 
-                {/* Visual Technical Precision Indicator */}
-                <div className="w-full pt-2.5 border-t border-stone-200/80 dark:border-stone-800 space-y-1.5">
-                  <div className="flex items-center justify-between gap-2 text-[11px]">
-                    <span className="inline-flex items-center gap-1 font-bold text-emerald-700 dark:text-emerald-400">
-                      <Lock className="w-3 h-3 shrink-0" />
-                      <span>تثبيت الملامح: الأعلى دقة (قفل مباشر)</span>
-                    </span>
-                    <span className="font-mono-num font-bold text-emerald-700 dark:text-emerald-400">
-                      قفل صارم
-                    </span>
-                  </div>
-                  <div
-                    aria-hidden="true"
-                    className="w-full h-1.5 rounded-full bg-stone-200 dark:bg-stone-800 overflow-hidden"
-                  >
-                    <div className="h-full w-full bg-emerald-600 dark:bg-emerald-500 rounded-full" />
-                  </div>
-                  <p className="text-[10px] text-stone-500 dark:text-stone-400">
-                    يمنع أي تعديل في عظام الوجه أو زاوية الكاميرا (القواعد 01–03)
+                <div className="w-full pt-2.5 border-t border-stone-200/80 dark:border-stone-800">
+                  <p className="text-[11px] text-stone-600 dark:text-stone-400 leading-relaxed">
+                    يحدد مناطق الوجه كأجزاء غير مستهدفة بالتعديل؛ لا يمكن إثبات التطابق دون مقارنة بصرية.
                   </p>
                 </div>
               </button>
@@ -781,10 +765,10 @@ export default function App() {
                   <div className="flex items-center justify-between gap-2">
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
                       <Lock className="w-3 h-3 shrink-0" />
-                      <span>دقة قصوى</span>
+                      <span>تعليمات حماية الوجه</span>
                     </span>
                     <span className="text-[10px] font-mono-num font-semibold text-[#ff6600]">
-                      JSON Identity Lock
+                      JSON مرآة منظّم
                     </span>
                   </div>
 
@@ -801,25 +785,9 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Visual Technical Precision Indicator */}
-                <div className="w-full pt-2.5 border-t border-stone-200/80 dark:border-stone-800 space-y-1.5">
-                  <div className="flex items-center justify-between gap-2 text-[11px]">
-                    <span className="inline-flex items-center gap-1 font-bold text-emerald-700 dark:text-emerald-400">
-                      <Lock className="w-3 h-3 shrink-0" />
-                      <span>تثبيت الملامح: الأعلى دقة تقنية (JSON Lock)</span>
-                    </span>
-                    <span className="font-mono-num font-bold text-emerald-700 dark:text-emerald-400">
-                      قفل هيكلي
-                    </span>
-                  </div>
-                  <div
-                    aria-hidden="true"
-                    className="w-full h-1.5 rounded-full bg-stone-200 dark:bg-stone-800 overflow-hidden"
-                  >
-                    <div className="h-full w-full bg-emerald-600 dark:bg-emerald-500 rounded-full" />
-                  </div>
-                  <p className="text-[10px] text-stone-500 dark:text-stone-400">
-                    يقدّم SUBJECT_IDENTITY_LOCK و Rule_1 فوق الجمالية الفنية مع أولوية للصورة المرجعية
+                <div className="w-full pt-2.5 border-t border-stone-200/80 dark:border-stone-800">
+                  <p className="text-[11px] text-stone-600 dark:text-stone-400 leading-relaxed">
+                    يوجّه انعكاس المرآة واليد الحاملة للهاتف مع تقديم هوية الوجه على زخارف المشهد؛ ليس قفلًا بيومتريًا.
                   </p>
                 </div>
               </button>
@@ -841,7 +809,7 @@ export default function App() {
                   <div className="flex items-center justify-between gap-2">
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-amber-100 text-amber-900 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
                       <Sliders className="w-3 h-3 shrink-0" />
-                      <span>دقة مرنة</span>
+                      <span>تخصيص المشهد</span>
                     </span>
                     <span className="text-[10px] font-mono-num font-semibold text-amber-700 dark:text-amber-400">
                       تخصيص شامل (8 أقسام)
@@ -861,25 +829,9 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Visual Technical Precision Indicator */}
-                <div className="w-full pt-2.5 border-t border-stone-200/80 dark:border-stone-800 space-y-1.5">
-                  <div className="flex items-center justify-between gap-2 text-[11px]">
-                    <span className="inline-flex items-center gap-1 font-semibold text-amber-700 dark:text-amber-400">
-                      <Lock className="w-3 h-3 shrink-0" />
-                      <span>تثبيت الملامح: قياسي مرن (مع تغيير البيئة)</span>
-                    </span>
-                    <span className="font-mono-num font-bold text-amber-700 dark:text-amber-400">
-                      85%
-                    </span>
-                  </div>
-                  <div
-                    aria-hidden="true"
-                    className="w-full h-1.5 rounded-full bg-stone-200 dark:bg-stone-800 overflow-hidden"
-                  >
-                    <div className="h-full w-[85%] bg-amber-500 rounded-full" />
-                  </div>
-                  <p className="text-[10px] text-stone-500 dark:text-stone-400">
-                    يحفظ الهوية مع منح مرونة لتغيير طراز الغرفة والإضاءة والملابس
+                <div className="w-full pt-2.5 border-t border-stone-200/80 dark:border-stone-800">
+                  <p className="text-[11px] text-stone-600 dark:text-stone-400 leading-relaxed">
+                    يسمح بتغييرات أكبر في الكادر والملابس والغرفة، ما يزيد احتمال اختلاف مظهر الوجه في النموذج الخارجي.
                   </p>
                 </div>
               </button>
