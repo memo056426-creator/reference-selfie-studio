@@ -7490,11 +7490,35 @@ export function validateReferenceImageInput(input: {
     };
   }
 
-  const cleanedBase64 = rawBase64.includes(',')
-    ? rawBase64.split(',')[1]?.trim() || ''
-    : rawBase64.replace(/\s+/g, '');
+  const cleanedBase64 = (rawBase64.includes(',')
+    ? rawBase64.split(',')[1] || ''
+    : rawBase64
+  ).replace(/\s+/g, '');
 
-  if (!cleanedBase64 || !/^[A-Za-z0-9+/=]+$/.test(cleanedBase64)) {
+  // The reported file size is untrusted: always calculate decoded bytes from
+  // the base64 payload itself before allowing upload to the image model.
+  const declaredBytes =
+    typeof input.sizeBytes === 'number' && input.sizeBytes > 0
+      ? input.sizeBytes
+      : 0;
+  const maxEncodedLength = Math.ceil(MAX_REFERENCE_IMAGE_BYTES / 3) * 4;
+  const tooLargeErrorAr =
+    'حجم الصورة المرجعية يتجاوز الحد الأقصى المسموح به (10 ميجابايت). يرجى اختيار صورة أصغر.';
+
+  // Fast-fail oversized payloads before running the base64 format check.
+  if (cleanedBase64.length > maxEncodedLength || declaredBytes > MAX_REFERENCE_IMAGE_BYTES) {
+    return {
+      includeImage: false,
+      valid: false,
+      errorAr: tooLargeErrorAr,
+    };
+  }
+
+  // Enforce valid base64 groups and end padding (not just allowed characters).
+  if (
+    !cleanedBase64 ||
+    !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(cleanedBase64)
+  ) {
     return {
       includeImage: false,
       valid: false,
@@ -7502,18 +7526,19 @@ export function validateReferenceImageInput(input: {
     };
   }
 
-  const estimatedBytes =
-    typeof input.sizeBytes === 'number' && input.sizeBytes > 0
-      ? input.sizeBytes
-      : Math.floor((cleanedBase64.length * 3) / 4);
+  const paddingBytes = cleanedBase64.endsWith('==')
+    ? 2
+    : cleanedBase64.endsWith('=')
+      ? 1
+      : 0;
+  const decodedBytes = (cleanedBase64.length / 4) * 3 - paddingBytes;
 
-  if (estimatedBytes > MAX_REFERENCE_IMAGE_BYTES) {
+  if (decodedBytes > MAX_REFERENCE_IMAGE_BYTES) {
     return {
       includeImage: false,
       valid: false,
-      sizeBytes: estimatedBytes,
-      errorAr:
-        'حجم الصورة المرجعية يتجاوز الحد الأقصى المسموح به (10 ميجابايت). يرجى اختيار صورة أصغر.',
+      sizeBytes: decodedBytes,
+      errorAr: tooLargeErrorAr,
     };
   }
 
@@ -7522,7 +7547,7 @@ export function validateReferenceImageInput(input: {
     valid: true,
     mimeType: rawMime === 'image/jpg' ? 'image/jpeg' : rawMime,
     base64Data: cleanedBase64,
-    sizeBytes: estimatedBytes,
+    sizeBytes: decodedBytes,
   };
 }
 
