@@ -804,6 +804,18 @@ export function solveBiomechanicsAndPhysics(
         ? 'leaning'
         : 'standing';
 
+  // A held prop (e.g. open_book) is not the surface supporting a seated body.
+  // Derive the seat independently so gravity and visible contacts agree.
+  const seatedSurface: 'bed_edge' | 'chair' | 'stool' =
+    supportObject === 'bed_edge' ||
+    supportObject === 'chair' ||
+    supportObject === 'stool'
+      ? supportObject
+      : pose === 'pose_chair_or_stool_sitting' ||
+          pose === 'pose_seated_forearm_knee_rest'
+        ? 'chair'
+        : 'bed_edge';
+
   // 1. Gravity & balance
   let gravityBalance: GravityAndBalanceState;
   if (postureType === 'floor_seated') {
@@ -818,9 +830,9 @@ export function solveBiomechanicsAndPhysics(
     };
   } else if (postureType === 'seated') {
     const surfaceLabel =
-      supportObject === 'chair'
+      seatedSurface === 'chair'
         ? 'visible bedroom chair seat'
-        : supportObject === 'stool'
+        : seatedSurface === 'stool'
           ? 'visible bedroom stool seat'
           : 'visible bed mattress edge';
     gravityBalance = {
@@ -829,7 +841,7 @@ export function solveBiomechanicsAndPhysics(
         ? `Pelvis weighted steadily onto the ${surfaceLabel} with balanced upper torso and feet anchored comfortably on the floor beneath.`
         : `Pelvis weighted steadily onto the ${surfaceLabel} with balanced upright upper-torso posture.`,
       centerOfMassNotes:
-        supportObject === 'bed_edge'
+        seatedSurface === 'bed_edge'
           ? 'Subtle localized mattress indentation strictly beneath seated pelvis weight.'
           : 'Stable vertical load path through rigid chair/stool frame.',
     };
@@ -929,14 +941,17 @@ export function solveBiomechanicsAndPhysics(
   if (isFramingShowingLowerLegsAndFeet(framing) && postureType === 'standing') {
     visibleContactPoints.push('soles/footwear grounded flat on bedroom floor');
   }
-  if (supportObject === 'bed_edge') {
-    visibleContactPoints.push('seated thighs/pelvis compressing the visible mattress edge');
-    if (pose === 'pose_bed_edge_dynamic') {
-      visibleContactPoints.push('phone-arm elbow braced lightly on thigh and free palm resting on bedsheets');
+  if (postureType === 'seated') {
+    if (seatedSurface === 'bed_edge') {
+      visibleContactPoints.push('seated thighs/pelvis compressing the visible mattress edge');
+      if (pose === 'pose_bed_edge_dynamic') {
+        visibleContactPoints.push('phone-arm elbow braced lightly on thigh and free palm resting on bedsheets');
+      }
+    } else {
+      visibleContactPoints.push(`seated body resting naturally on visible ${seatedSurface}`);
     }
-  } else if (supportObject === 'chair' || supportObject === 'stool') {
-    visibleContactPoints.push(`seated body resting naturally on visible ${supportObject}`);
-  } else if (supportObject === 'wall') {
+  }
+  if (supportObject === 'wall') {
     visibleContactPoints.push('shoulder/upper back making light contact with visible bedroom wall');
   } else if (supportObject === 'vanity') {
     visibleContactPoints.push('hip/forearm lightly resting against visible vanity table edge');
@@ -951,6 +966,9 @@ export function solveBiomechanicsAndPhysics(
   }
   if (postureType === 'floor_seated') {
     visibleContactPoints.push('seated legs/pelvis grounded cleanly on bedroom floor/rug');
+    if (pose === 'pose_floor_sitting_bed' && supportObject === 'bed_edge') {
+      visibleContactPoints.push('upper back resting lightly against the visible bed frame');
+    }
   }
 
   // 5. Garment physics & pocket validation
