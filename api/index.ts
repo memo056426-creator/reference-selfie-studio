@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import appPromise from '../server';
+import appPromise from '../server.ts';
 
 // Forward the original API slug from Vercel's rewrite to Express.
 type ApiRequest = IncomingMessage & {
