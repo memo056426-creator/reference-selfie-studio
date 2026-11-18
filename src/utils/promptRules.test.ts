@@ -2912,7 +2912,17 @@ Let me know if you need anything else!`;
       mirrorSupportObject: 'none',
     };
     const fixedSupport = enforceCompatibilityRules(invalidSupportSel);
-    expect(fixedSupport.selections.mirrorSupportObject).toBe('wall');
+    // An explicitly selected 'none' support is retained when the pose is unlocked.
+    expect(fixedSupport.selections.mirrorSupportObject).toBe('none');
+    expect(fixedSupport.selections.mirrorPose).toBe('pose_contrapposto_standing');
+
+    // When the leaning pose is locked, the unlocked support adjusts instead.
+    const lockedLean = enforceCompatibilityRules({
+      ...invalidSupportSel,
+      lockedFields: ['mirrorPose'],
+    });
+    expect(lockedLean.selections.mirrorPose).toBe('pose_wall_lean_scurve');
+    expect(lockedLean.selections.mirrorSupportObject).toBe('wall');
 
     // 11. Phone-hand vs free-hand conflicts
     const bothHandsConflictSel: SelfieSelections = {
