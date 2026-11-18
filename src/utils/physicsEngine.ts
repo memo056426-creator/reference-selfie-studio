@@ -23,7 +23,7 @@ import {
   UpperGarmentPatternType,
   UpperGarmentType,
   XIAOMI_15_ULTRA_LENS_PROFILES,
-} from '../types/selfie';
+} from '../types/selfie.ts';
 
 export type { LockableSelectionField, MirrorPoseCategoryId };
 
