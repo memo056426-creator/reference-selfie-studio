@@ -7517,7 +7517,8 @@ export function validateReferenceImageInput(input: {
   // Enforce valid base64 groups and end padding (not just allowed characters).
   if (
     !cleanedBase64 ||
-    !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(cleanedBase64)
+    cleanedBase64.length % 4 !== 0 ||
+    !/^[A-Za-z0-9+/]*={0,2}$/.test(cleanedBase64)
   ) {
     return {
       includeImage: false,
