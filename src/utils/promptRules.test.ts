@@ -66,6 +66,52 @@ import {
 } from './promptRules';
 
 describe('Prompt Generation Utils', () => {
+  it('keeps seated surfaces, props, and floor contacts physically consistent', () => {
+    const bookOnBed = solveBiomechanicsAndPhysics({
+      ...DEFAULT_SELECTIONS,
+      mirrorPose: 'pose_prop_open_book',
+      mirrorSupportObject: 'open_book',
+      phoneHand: 'right_hand',
+      framing: 'three_quarter',
+    });
+    expect(bookOnBed.gravityBalance.postureType).toBe('seated');
+    expect(bookOnBed.gravityBalance.weightDistribution).toContain('mattress edge');
+    expect(bookOnBed.gravityBalance.centerOfMassNotes).toContain('mattress indentation');
+    expect(bookOnBed.visibleContactPoints).toContain(
+      'seated thighs/pelvis compressing the visible mattress edge'
+    );
+    expect(bookOnBed.visibleContactPoints).toContain('free hand cradling an open book');
+    expect(bookOnBed.gravityBalance.centerOfMassNotes).not.toContain('chair/stool');
+
+    const chairFallback = solveBiomechanicsAndPhysics({
+      ...DEFAULT_SELECTIONS,
+      mirrorPose: 'pose_chair_or_stool_sitting',
+      mirrorSupportObject: 'none',
+    });
+    expect(chairFallback.gravityBalance.postureType).toBe('seated');
+    expect(chairFallback.gravityBalance.weightDistribution).toContain('chair seat');
+    expect(chairFallback.gravityBalance.centerOfMassNotes).toContain('rigid chair/stool');
+    expect(chairFallback.visibleContactPoints).toContain(
+      'seated body resting naturally on visible chair'
+    );
+
+    const floorByBed = solveBiomechanicsAndPhysics({
+      ...DEFAULT_SELECTIONS,
+      mirrorPose: 'pose_floor_sitting_bed',
+      mirrorSupportObject: 'bed_edge',
+    });
+    expect(floorByBed.gravityBalance.postureType).toBe('floor_seated');
+    expect(floorByBed.visibleContactPoints).toContain(
+      'seated legs/pelvis grounded cleanly on bedroom floor/rug'
+    );
+    expect(floorByBed.visibleContactPoints).toContain(
+      'upper back resting lightly against the visible bed frame'
+    );
+    expect(floorByBed.visibleContactPoints).not.toContain(
+      'seated thighs/pelvis compressing the visible mattress edge'
+    );
+  });
+
   it('should correctly extract content strictly from a markdown code block', () => {
     const aiResponse = `Here is your prompt:
 \`\`\`markdown
