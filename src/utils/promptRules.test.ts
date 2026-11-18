@@ -66,6 +66,32 @@ import {
 } from './promptRules';
 
 describe('Prompt Generation Utils', () => {
+  it('blocks reference-face replacement across Scene Builder and Strict Editing while allowing protected expression changes', () => {
+    for (const mode of ['scene_builder', 'strict_editing'] as const) {
+      const selections: SelfieSelections = {
+        ...DEFAULT_SELECTIONS,
+        workflowMode: mode,
+        strictLightingMode: 'mode_a_screen',
+        strictOutputFormat: 'concise_prompt',
+        expression: 'spontaneous_laugh',
+      };
+      const baseline = buildDeterministicEnglishPrompt(selections, 0);
+      expect(validatePromptOutput(baseline, selections).valid).toBe(true);
+      expect(
+        validatePromptOutput(
+          baseline + ' Replace the reference face with a different person\'s face.',
+          selections
+        ).valid
+      ).toBe(false);
+      expect(
+        validatePromptOutput(
+          baseline + ' Do not reshape the reference nose or alter the jawline.',
+          selections
+        ).valid
+      ).toBe(true);
+    }
+  });
+
   it('rejects mirror output that loses or swaps the selected physical phone hand', () => {
     const selections: SelfieSelections = {
       ...DEFAULT_SELECTIONS,
