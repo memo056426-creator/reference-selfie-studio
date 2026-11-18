@@ -2814,7 +2814,7 @@ Let me know if you need anything else!`;
       ...DEFAULT_SELECTIONS,
       workflowMode: 'mirror_studio',
       lighting: 'mode_b_phone_flash_mirror_dark',
-      flashMirrorGeometry: 'direct_reflection',
+      flashMirrorGeometry: 'natural_glare',
     };
     const angledFlashSel: SelfieSelections = {
       ...directFlashSel,
@@ -2919,7 +2919,7 @@ Let me know if you need anything else!`;
       ...DEFAULT_SELECTIONS,
       workflowMode: 'mirror_studio',
       phoneHand: 'both_hands',
-      mirrorFreeHandAction: 'coffee_mug_hold',
+      mirrorFreeHandAction: 'hold_mug',
     };
     const fixedBothHands = enforceCompatibilityRules(bothHandsConflictSel);
     expect(fixedBothHands.selections.mirrorFreeHandAction).toBe('none_relaxed');
@@ -2931,7 +2931,7 @@ Let me know if you need anything else!`;
       framing: 'head_and_shoulders',
       mirrorPose: 'pose_bed_edge_dynamic',
       phoneHand: 'both_hands',
-      mirrorFreeHandAction: 'hand_in_pocket',
+      mirrorFreeHandAction: 'hand_at_hip_or_pocket',
       lockedFields: ['framing', 'mirrorPose', 'phoneHand', 'mirrorFreeHandAction'],
     };
     const lockedResult = enforceCompatibilityRules(lockedConflictSel);
@@ -2939,8 +2939,8 @@ Let me know if you need anything else!`;
     expect(lockedResult.selections.framing).toBe('head_and_shoulders');
     expect(lockedResult.selections.mirrorPose).toBe('pose_bed_edge_dynamic');
     expect(lockedResult.selections.phoneHand).toBe('both_hands');
-    expect(lockedResult.selections.mirrorFreeHandAction).toBe('hand_in_pocket');
-    const directConflicts = evaluateLockedMirrorConflicts(lockedResult.selections);
+    expect(lockedResult.selections.mirrorFreeHandAction).toBe('hand_at_hip_or_pocket');
+    const { lockedConflicts: directConflicts } = evaluateLockedMirrorConflicts(lockedResult.selections);
     expect(directConflicts.length).toBeGreaterThanOrEqual(2);
     expect(directConflicts.some((c) => Boolean(c.suggestedFixAr) && Boolean(c.suggestedUpdates))).toBe(true);
 
