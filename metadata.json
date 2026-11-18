@@ -1,0 +1,8 @@
+{
+  "name": "Remix مرسم السيلفي المرجعي — مولّد برومبتات غرفة النوم",
+  "description": "أداة احترافية باللغة العربية لبناء برومبتات إنجليزية دقيقة لصور السيلفي الواقعية في غرفة النوم مع الحفاظ على الهوية المرجعية.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

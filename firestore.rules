@@ -1,0 +1,118 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Safety Net: Default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidPromptPreset(data) {
+      return data.keys().hasAll([
+          'userId',
+          'title',
+          'promptText',
+          'selfieType',
+          'framing',
+          'roomStyle',
+          'lighting',
+          'aspectRatio',
+          'selectionsJson',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'userId',
+          'title',
+          'promptText',
+          'selfieType',
+          'framing',
+          'roomStyle',
+          'lighting',
+          'aspectRatio',
+          'selectionsJson',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.userId is string &&
+        data.userId.size() >= 1 &&
+        data.userId.size() <= 128 &&
+        data.userId.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.userId == request.auth.uid &&
+        data.title is string &&
+        data.title.size() >= 1 &&
+        data.title.size() <= 120 &&
+        data.promptText is string &&
+        data.promptText.size() >= 20 &&
+        data.promptText.size() <= 2500 &&
+        data.selfieType is string &&
+        data.selfieType in ['front_camera', 'mirror'] &&
+        data.framing is string &&
+        data.framing in ['head_and_shoulders', 'half_body', 'three_quarter', 'full_body_mirror'] &&
+        data.roomStyle is string &&
+        data.roomStyle in ['modern_minimal', 'warm_cozy', 'hotel_luxury', 'classic', 'compact_realistic'] &&
+        data.lighting is string &&
+        data.lighting in ['morning_window', 'soft_daylight', 'late_afternoon', 'warm_bedside_lamp', 'calm_ceiling_light'] &&
+        data.aspectRatio is string &&
+        data.aspectRatio in ['1:1', '2:3', '3:2', '3:4', '4:3', '9:16', '16:9', '21:9'] &&
+        data.selectionsJson is string &&
+        data.selectionsJson.size() >= 2 &&
+        data.selectionsJson.size() <= 5000 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    match /presets/{presetId} {
+      allow get: if isSignedIn() && isValidId(presetId) && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && existing().userId == request.auth.uid;
+
+      allow create: if isVerifiedUser() &&
+        isValidId(presetId) &&
+        isValidPromptPreset(incoming()) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+
+      allow update: if isVerifiedUser() &&
+        isValidId(presetId) &&
+        isValidPromptPreset(incoming()) &&
+        existing().userId == request.auth.uid &&
+        incoming().userId == existing().userId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'title',
+          'promptText',
+          'selfieType',
+          'framing',
+          'roomStyle',
+          'lighting',
+          'aspectRatio',
+          'selectionsJson',
+          'updatedAt'
+        ]);
+
+      allow delete: if isVerifiedUser() &&
+        isValidId(presetId) &&
+        existing().userId == request.auth.uid;
+    }
+  }
+}

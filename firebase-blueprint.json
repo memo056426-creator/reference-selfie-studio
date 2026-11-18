@@ -1,0 +1,92 @@
+{
+  "entities": {
+    "PromptPreset": {
+      "title": "PromptPreset",
+      "description": "A saved bedroom selfie prompt preset created by an authenticated user.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "UID of the authenticated user who owns this preset.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "title": {
+          "type": "string",
+          "description": "Short Arabic label for the saved preset.",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "promptText": {
+          "type": "string",
+          "description": "The generated single-paragraph English selfie prompt.",
+          "minLength": 20,
+          "maxLength": 2500
+        },
+        "selfieType": {
+          "type": "string",
+          "description": "Selfie camera mode.",
+          "enum": ["front_camera", "mirror"]
+        },
+        "framing": {
+          "type": "string",
+          "description": "Framing selection.",
+          "enum": ["head_and_shoulders", "half_body", "three_quarter", "full_body_mirror"]
+        },
+        "roomStyle": {
+          "type": "string",
+          "description": "Bedroom interior style.",
+          "enum": ["modern_minimal", "warm_cozy", "hotel_luxury", "classic", "compact_realistic"]
+        },
+        "lighting": {
+          "type": "string",
+          "description": "Lighting selection.",
+          "enum": ["morning_window", "soft_daylight", "late_afternoon", "warm_bedside_lamp", "calm_ceiling_light"]
+        },
+        "aspectRatio": {
+          "type": "string",
+          "description": "Target aspect ratio for image generation.",
+          "enum": ["1:1", "2:3", "3:2", "3:4", "4:3", "9:16", "16:9", "21:9"]
+        },
+        "selectionsJson": {
+          "type": "string",
+          "description": "Serialized selection state for restoring all form controls.",
+          "minLength": 2,
+          "maxLength": 5000
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when preset was created."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when preset was updated."
+        }
+      },
+      "required": [
+        "userId",
+        "title",
+        "promptText",
+        "selfieType",
+        "framing",
+        "roomStyle",
+        "lighting",
+        "aspectRatio",
+        "selectionsJson",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/presets/{presetId}": {
+      "schema": {
+        "$ref": "#/entities/PromptPreset"
+      },
+      "description": "Stores user-saved bedroom selfie prompt configurations and generated English prompts."
+    }
+  }
+}
