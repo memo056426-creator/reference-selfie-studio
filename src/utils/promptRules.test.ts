@@ -71,8 +71,8 @@ describe('Prompt Generation Utils', () => {
       ...DEFAULT_SELECTIONS,
       workflowMode: 'scene_builder',
     });
-    expect(scene).toContain('Treat the supplied photo as an editable source');
-    expect(scene).toContain('non-target region during clothing and room edits');
+    expect(scene).toContain('edit the same person, not recreate a lookalike');
+    expect(scene).toContain('protected non-target region during clothing or room changes');
     expect(validatePromptOutput(scene, {
       ...DEFAULT_SELECTIONS,
       workflowMode: 'scene_builder',
@@ -84,7 +84,7 @@ describe('Prompt Generation Utils', () => {
       strictOutputFormat: 'concise_prompt' as const,
     };
     const strict = buildDeterministicEnglishPrompt(strictSelections);
-    expect(strict).toContain('non-target region during clothing and room edits');
+    expect(strict).toContain('protected non-target region during clothing or room changes');
     expect(validatePromptOutput(strict, strictSelections).valid).toBe(true);
 
     const full = buildDeterministicEnglishPrompt({
@@ -101,7 +101,7 @@ describe('Prompt Generation Utils', () => {
     expect(mirror.SUBJECT_IDENTITY_LOCK.Structural_Integrity).toContain(
       'treat visible facial regions as protected from regeneration'
     );
-    expect(mirror.GEMINI_EXECUTION_RULE).toContain('non-target region during clothing and room edits');
+    expect(mirror.GEMINI_EXECUTION_RULE).toContain('protected non-target region during clothing or room changes');
     expect(validatePromptOutput(JSON.stringify(mirror), mirrorSelections).valid).toBe(true);
   });
 
