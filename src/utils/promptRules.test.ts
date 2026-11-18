@@ -66,6 +66,188 @@ import {
 } from './promptRules';
 
 describe('Prompt Generation Utils', () => {
+  it('prioritizes protected source-face editing in every generator format', () => {
+    const scene = buildDeterministicEnglishPrompt({
+      ...DEFAULT_SELECTIONS,
+      workflowMode: 'scene_builder',
+    });
+    expect(scene).toContain('edit the same person, not recreate a lookalike');
+    expect(scene).toContain('protected non-target region for clothing or room edits');
+    expect(validatePromptOutput(scene, {
+      ...DEFAULT_SELECTIONS,
+      workflowMode: 'scene_builder',
+    }).valid).toBe(true);
+
+    const strictSelections = {
+      ...DEFAULT_SELECTIONS,
+      workflowMode: 'strict_editing' as const,
+      strictOutputFormat: 'concise_prompt' as const,
+    };
+    const strict = buildDeterministicEnglishPrompt(strictSelections);
+    expect(strict).toContain('protected non-target region for clothing or room edits');
+    expect(validatePromptOutput(strict, strictSelections).valid).toBe(true);
+
+    const full = buildDeterministicEnglishPrompt({
+      ...strictSelections,
+      strictOutputFormat: 'full_12_rules',
+    });
+    expect(full).toContain('treat visible facial regions as protected from regeneration');
+
+    const mirrorSelections = {
+      ...DEFAULT_SELECTIONS,
+      workflowMode: 'mirror_studio' as const,
+    };
+    const mirror = JSON.parse(buildMirrorStudioJsonPrompt(mirrorSelections));
+    expect(mirror.SUBJECT_IDENTITY_LOCK.Structural_Integrity).toContain(
+      'treat visible facial regions as protected from regeneration'
+    );
+    expect(mirror.GEMINI_EXECUTION_RULE).toContain('protected non-target region for clothing or room edits');
+    expect(validatePromptOutput(JSON.stringify(mirror), mirrorSelections).valid).toBe(true);
+  });
+
+  it('blocks reference-face replacement across Scene Builder and Strict Editing while allowing protected expression changes', () => {
+    for (const mode of ['scene_builder', 'strict_editing'] as const) {
+      const selections: SelfieSelections = {
+        ...DEFAULT_SELECTIONS,
+        workflowMode: mode,
+        strictLightingMode: 'mode_a_screen',
+        strictOutputFormat: 'concise_prompt',
+        expression: 'spontaneous_laugh',
+      };
+      const baseline = buildDeterministicEnglishPrompt(selections, 0);
+      expect(validatePromptOutput(baseline, selections).valid).toBe(true);
+      expect(
+        validatePromptOutput(
+          baseline + ' Replace the reference face with a different person\'s face.',
+          selections
+        ).valid
+      ).toBe(false);
+      expect(
+        validatePromptOutput(
+          baseline + ' Do not reshape the reference nose or alter the jawline.',
+          selections
+        ).valid
+      ).toBe(true);
+    }
+  });
+
+  it('rejects mirror output that loses or swaps the selected physical phone hand', () => {
+    const selections: SelfieSelections = {
+      ...DEFAULT_SELECTIONS,
+      workflowMode: 'mirror_studio',
+      selfieType: 'mirror',
+      phoneHand: 'right_hand',
+      mirrorPhonePosition: 'chest_level',
+      mirrorTorsoOrientation: 'facing_mirror',
+    };
+    const baseline = JSON.parse(buildMirrorStudioJsonPrompt(selections));
+    expect(validatePromptOutput(JSON.stringify(baseline), selections).valid).toBe(true);
+
+    const missingPose = { ...baseline };
+    delete missingPose.POSE_COMPOSITION;
+    expect(validatePromptOutput(JSON.stringify(missingPose), selections).valid).toBe(false);
+
+    const wrongHand = {
+      ...baseline,
+      POSE_COMPOSITION: { ...baseline.POSE_COMPOSITION, phone_hand: 'left_hand' },
+    };
+    expect(validatePromptOutput(JSON.stringify(wrongHand), selections).valid).toBe(false);
+
+    const wrongHoldingArm = {
+      ...baseline,
+      POSE_COMPOSITION: {
+        ...baseline.POSE_COMPOSITION,
+        anatomical_hand_mechanics: 'holding a single smartphone in the anatomical left hand',
+      },
+    };
+    expect(validatePromptOutput(JSON.stringify(wrongHoldingArm), selections).valid).toBe(false);
+
+    const swappedReflection = {
+      ...baseline,
+      POSE_COMPOSITION: {
+        ...baseline.POSE_COMPOSITION,
+        mirror_reflection_side: 'anatomical left arm as the phone-holding side and anatomical right arm as the free side',
+      },
+    };
+    expect(validatePromptOutput(JSON.stringify(swappedReflection), selections).valid).toBe(false);
+
+    const wrongPhoneHeight = {
+      ...baseline,
+      POSE_COMPOSITION: { ...baseline.POSE_COMPOSITION, phone_position: 'eye_level' },
+    };
+    expect(validatePromptOutput(JSON.stringify(wrongPhoneHeight), selections).valid).toBe(false);
+  });
+
+  it('rejects explicit facial redesign instructions even if the reference-preservation rule is also present', () => {
+    const selections: SelfieSelections = {
+      ...DEFAULT_SELECTIONS,
+      workflowMode: 'mirror_studio',
+      selfieType: 'mirror',
+    };
+    const baseline = JSON.parse(buildMirrorStudioJsonPrompt(selections));
+    const alteredIdentity = {
+      ...baseline,
+      GEMINI_EXECUTION_RULE:
+        baseline.GEMINI_EXECUTION_RULE +
+        ' Replace the reference face with a different person\'s face and reshape the nose.',
+    };
+    expect(validatePromptOutput(JSON.stringify(alteredIdentity), selections).valid).toBe(false);
+    const outcome = resolveValidatedPromptOrFallback(
+      JSON.stringify(alteredIdentity),
+      selections,
+      0
+    );
+    expect(outcome.source).toBe('deterministic');
+    expect(outcome.prompt).toContain(REFERENCE_FACE_PRESERVATION_RULE);
+  });
+
+  it('keeps seated surfaces, props, and floor contacts physically consistent', () => {
+    const bookOnBed = solveBiomechanicsAndPhysics({
+      ...DEFAULT_SELECTIONS,
+      mirrorPose: 'pose_prop_open_book',
+      mirrorSupportObject: 'open_book',
+      phoneHand: 'right_hand',
+      framing: 'three_quarter',
+    });
+    expect(bookOnBed.gravityBalance.postureType).toBe('seated');
+    expect(bookOnBed.gravityBalance.weightDistribution).toContain('mattress edge');
+    expect(bookOnBed.gravityBalance.centerOfMassNotes).toContain('mattress indentation');
+    expect(bookOnBed.visibleContactPoints).toContain(
+      'seated thighs/pelvis compressing the visible mattress edge'
+    );
+    expect(bookOnBed.visibleContactPoints).toContain('free hand cradling an open book');
+    expect(bookOnBed.gravityBalance.centerOfMassNotes).not.toContain('chair/stool');
+
+    const chairFallback = solveBiomechanicsAndPhysics({
+      ...DEFAULT_SELECTIONS,
+      mirrorPose: 'pose_chair_or_stool_sitting',
+      mirrorSupportObject: 'none',
+    });
+    expect(chairFallback.gravityBalance.postureType).toBe('seated');
+    expect(chairFallback.gravityBalance.weightDistribution).toContain('chair seat');
+    expect(chairFallback.gravityBalance.centerOfMassNotes).toContain('rigid chair/stool');
+    expect(chairFallback.visibleContactPoints).toContain(
+      'seated body resting naturally on visible chair'
+    );
+
+    const floorByBed = solveBiomechanicsAndPhysics({
+      ...DEFAULT_SELECTIONS,
+      mirrorPose: 'pose_floor_sitting_bed',
+      mirrorSupportObject: 'bed_edge',
+    });
+    expect(floorByBed.gravityBalance.postureType).toBe('floor_seated');
+    expect(floorByBed.visibleContactPoints).toContain(
+      'seated legs/pelvis grounded cleanly on bedroom floor/rug'
+    );
+    expect(floorByBed.visibleContactPoints).toContain(
+      'upper back resting lightly against the visible bed frame'
+    );
+    expect(floorByBed.visibleContactPoints).not.toContain(
+      'seated thighs/pelvis compressing the visible mattress edge'
+    );
+  });
+
+
   it('should correctly extract content strictly from a markdown code block', () => {
     const aiResponse = `Here is your prompt:
 \`\`\`markdown
@@ -915,6 +1097,36 @@ Let me know if you need anything else!`;
     expect(oversized.includeImage).toBe(false);
     expect(oversized.valid).toBe(false);
     expect(oversized.errorAr).toContain('10 ميجابايت');
+  });
+
+  it('rejects oversized or malformed reference payloads even when file size metadata is forged', () => {
+    // This data is larger than 10 MiB after decoding, regardless of the client size hint.
+    const oversizedData = 'A'.repeat(4 * Math.ceil((MAX_REFERENCE_IMAGE_BYTES + 1) / 3));
+    const forgedSmallSize = validateReferenceImageInput({
+      optIn: true,
+      base64Data: oversizedData,
+      mimeType: 'image/png',
+      sizeBytes: 1,
+    });
+    expect(forgedSmallSize.valid).toBe(false);
+    expect(forgedSmallSize.includeImage).toBe(false);
+    expect(forgedSmallSize.errorAr).toContain('10 ميجابايت');
+
+    const invalidPadding = validateReferenceImageInput({
+      optIn: true,
+      base64Data: 'AAAA====',
+      mimeType: 'image/png',
+    });
+    expect(invalidPadding.valid).toBe(false);
+
+    const oneByteImagePayload = validateReferenceImageInput({
+      optIn: true,
+      base64Data: 'data:image/png;base64,AQ==',
+      mimeType: 'image/png',
+      sizeBytes: 999,
+    });
+    expect(oneByteImagePayload.valid).toBe(true);
+    expect(oneByteImagePayload.sizeBytes).toBe(1);
   });
 
   it('sanitizes reference-image analysis so uncertain facts become unknown and sensitive traits or device specs are never inferred', () => {
@@ -2784,7 +2996,7 @@ Let me know if you need anything else!`;
       ...DEFAULT_SELECTIONS,
       workflowMode: 'mirror_studio',
       lighting: 'mode_b_phone_flash_mirror_dark',
-      flashMirrorGeometry: 'direct_reflection',
+      flashMirrorGeometry: 'natural_glare',
     };
     const angledFlashSel: SelfieSelections = {
       ...directFlashSel,
@@ -2882,14 +3094,24 @@ Let me know if you need anything else!`;
       mirrorSupportObject: 'none',
     };
     const fixedSupport = enforceCompatibilityRules(invalidSupportSel);
-    expect(fixedSupport.selections.mirrorSupportObject).toBe('wall');
+    // An explicitly selected 'none' support is retained when the pose is unlocked.
+    expect(fixedSupport.selections.mirrorSupportObject).toBe('none');
+    expect(fixedSupport.selections.mirrorPose).toBe('pose_contrapposto_standing');
+
+    // When the leaning pose is locked, the unlocked support adjusts instead.
+    const lockedLean = enforceCompatibilityRules({
+      ...invalidSupportSel,
+      lockedFields: ['mirrorPose'],
+    });
+    expect(lockedLean.selections.mirrorPose).toBe('pose_wall_lean_scurve');
+    expect(lockedLean.selections.mirrorSupportObject).toBe('wall');
 
     // 11. Phone-hand vs free-hand conflicts
     const bothHandsConflictSel: SelfieSelections = {
       ...DEFAULT_SELECTIONS,
       workflowMode: 'mirror_studio',
       phoneHand: 'both_hands',
-      mirrorFreeHandAction: 'coffee_mug_hold',
+      mirrorFreeHandAction: 'hold_mug',
     };
     const fixedBothHands = enforceCompatibilityRules(bothHandsConflictSel);
     expect(fixedBothHands.selections.mirrorFreeHandAction).toBe('none_relaxed');
@@ -2901,7 +3123,7 @@ Let me know if you need anything else!`;
       framing: 'head_and_shoulders',
       mirrorPose: 'pose_bed_edge_dynamic',
       phoneHand: 'both_hands',
-      mirrorFreeHandAction: 'hand_in_pocket',
+      mirrorFreeHandAction: 'hand_at_hip_or_pocket',
       lockedFields: ['framing', 'mirrorPose', 'phoneHand', 'mirrorFreeHandAction'],
     };
     const lockedResult = enforceCompatibilityRules(lockedConflictSel);
@@ -2909,8 +3131,8 @@ Let me know if you need anything else!`;
     expect(lockedResult.selections.framing).toBe('head_and_shoulders');
     expect(lockedResult.selections.mirrorPose).toBe('pose_bed_edge_dynamic');
     expect(lockedResult.selections.phoneHand).toBe('both_hands');
-    expect(lockedResult.selections.mirrorFreeHandAction).toBe('hand_in_pocket');
-    const directConflicts = evaluateLockedMirrorConflicts(lockedResult.selections);
+    expect(lockedResult.selections.mirrorFreeHandAction).toBe('hand_at_hip_or_pocket');
+    const { lockedConflicts: directConflicts } = evaluateLockedMirrorConflicts(lockedResult.selections);
     expect(directConflicts.length).toBeGreaterThanOrEqual(2);
     expect(directConflicts.some((c) => Boolean(c.suggestedFixAr) && Boolean(c.suggestedUpdates))).toBe(true);
 

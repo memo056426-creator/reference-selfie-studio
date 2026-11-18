@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import { FaceCropTool } from './FaceCropTool';
 import { Camera, Check, Image as ImageIcon, ShieldAlert, Sparkles, Trash2, Upload } from 'lucide-react';
 import { LightingType, RoomStyleType } from '../types/selfie';
 import {
@@ -119,6 +120,7 @@ export const ReferenceImageSection: React.FC<ReferenceImageSectionProps> = ({
         body: JSON.stringify({
           imageBase64,
           mimeType: imageMimeType,
+          referenceImageOptIn: true,
         }),
       });
       const data = await response.json();
@@ -162,10 +164,10 @@ export const ReferenceImageSection: React.FC<ReferenceImageSectionProps> = ({
       {/* Guidance Banner */}
       <div className="bg-stone-50 dark:bg-stone-800/60 border border-stone-200/80 dark:border-stone-700/70 rounded-lg p-4 mb-5">
         <p className="text-sm font-semibold text-stone-900 dark:text-stone-100 mb-1">
-          استخدم الصورة المرجعية نفسها مع البرومبت في أداة توليد الصور
+          استخدم الصورة الأصلية وقصّة وجه قريبة مع البرومبت في أداة توليد الصور
         </p>
         <p className="text-xs text-stone-600 dark:text-stone-300 leading-relaxed">
-          تبقى صورتك المرجعية محلية داخل متصفحك افتراضيًا ولا تُرسل إلى الخادم إلا إذا قمت بتفعيل خيار تحليل الصورة المرجعية عبر Gemini أدناه ثم ضغطت على «توليد البرومبت». لا يتم حفظ الصورة أو تسجيلها، ولا نقوم باستنتاج الهوية أو العمر أو الجنس أو العرق أو قياسات الجسم أو أي سمات شخصية حساسة، كما أن اختياراتك اليدوية في الإعدادات لها الأولوية دائمًا فوق أي ملاحظة مستخلصة من الصورة.
+          استخدام الصورة داخل هذا التطبيق لا يعني أن محرّر الصور الخارجي شاهدها. ارفع الصورة الأصلية في Gemini بجانب البرومبت؛ ويمكنك إعداد قصّة وجه مقربة محليًا أدناه وإرفاقها كمرجع تفاصيل لنفس الشخص. تبقى الصورة محلية في هذا التطبيق ما لم توافق على إرسالها لتحليل المشهد، ولا توجد هنا ميزة لقفل الوجه فعليًا أو ضمان مطابقته تلقائيًا.
         </p>
       </div>
 
@@ -225,6 +227,8 @@ export const ReferenceImageSection: React.FC<ReferenceImageSectionProps> = ({
               </div>
             </div>
           )}
+
+          {imagePreviewUrl && <FaceCropTool imagePreviewUrl={imagePreviewUrl} />}
 
           {uploadError && (
             <p role="alert" className="text-xs text-red-600 dark:text-red-400 mt-2">

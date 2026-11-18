@@ -80,6 +80,10 @@ async function startServer() {
 
   app.use(express.json({ limit: '15mb' }));
 
+  app.get('/api/health', (_req, res) => {
+    res.json({ status: 'ok', service: 'reference-selfie-studio' });
+  });
+
   // 1. Generate or Rephrase English Selfie Prompt using the normalized scene & optional reference-image analysis pipeline
   const handleGeneratePrompt = async (req: express.Request, res: express.Response) => {
     const requestId = `req_${randomUUID().slice(0, 8)}`;
@@ -404,9 +408,15 @@ async function startServer() {
   // 3. Reference Image Lighting & Environment Compatibility Analysis using gemini-4-hydrogen
   // Strictly avoids inferring age, ethnicity, or sensitive traits per Section 3 rules.
   app.post('/api/gemini/analyze-image', async (req, res) => {
-    const { imageBase64, mimeType, sizeBytes } = req.body || {};
+    const { imageBase64, mimeType, sizeBytes, referenceImageOptIn } = req.body || {};
+    if (referenceImageOptIn !== true) {
+      return res.status(403).json({
+        error: 'يجب الموافقة صراحةً على إرسال الصورة المرجعية للتحليل أولًا.',
+      });
+    }
+
     const check = validateReferenceImageInput({
-      optIn: true,
+      optIn: referenceImageOptIn,
       base64Data: imageBase64,
       mimeType,
       sizeBytes,
@@ -542,6 +552,12 @@ async function startServer() {
     }
   });
 
+  // Vercel invokes this Express app as a stateless Function.
+  // The frontend is served separately from Vite's dist/ output by its CDN.
+  if (process.env.VERCEL === '1') {
+    return app;
+  }
+
   if (process.env.NODE_ENV !== 'production') {
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
@@ -560,6 +576,8 @@ async function startServer() {
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
+  return app;
 }
 
-startServer();
+// Local development still starts the server; Vercel imports the app Promise.
+export default startServer();

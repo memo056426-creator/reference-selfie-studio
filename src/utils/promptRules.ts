@@ -92,7 +92,7 @@ import {
   UpperGarmentPatternType,
   UpperGarmentType,
   XIAOMI_15_ULTRA_LENS_PROFILES,
-} from '../types/selfie';
+} from '../types/selfie.ts';
 import {
   BiomechanicsSolution,
   buildPhoneHandOpticsState,
@@ -107,7 +107,7 @@ import {
   MIRROR_POSE_CATEGORY_LIST,
   MirrorPoseCategoryId,
   solveBiomechanicsAndPhysics,
-} from './physicsEngine';
+} from './physicsEngine.ts';
 
 export {
   CONCISE_REFERENCE_FACE_PRESERVATION_RULE,
@@ -6072,6 +6072,21 @@ function stripNegatedPhysicalClauses(text: string): string {
 }
 
 /**
+ * Detects positive instructions to change visible reference facial anatomy.
+ * Shared reference-preservation rules are excluded before checking so
+ * prohibitions enumerating disallowed edits cannot create false positives.
+ */
+function hasAffirmativeFacialRedesign(text: string): boolean {
+  const supplementalText = text
+    .replaceAll(REFERENCE_FACE_PRESERVATION_RULE, '')
+    .replaceAll(CONCISE_REFERENCE_FACE_PRESERVATION_RULE, '');
+  const affirmative = stripNegatedPhysicalClauses(supplementalText);
+  return /\b(?:replace|swap|redesign|reshape|reconstruct|alter|modify|change)\s+(?:(?:the|a|an|original|reference|subject's|person's)\s+){0,4}(?:face|nose|jaw(?:line)?|chin|eyes?|hairline|facial\s+(?:features?|geometry|anatomy|structure))\b/i.test(
+    affirmative
+  );
+}
+
+/**
  * Validates that a rendered or model-generated prompt satisfies all required constraints
  * from the normalized StructuredSceneConfig (camera mode, pose, lighting, and clothing edits).
  */
@@ -6530,6 +6545,12 @@ export function validatePromptOutput(
 
   const affirmativePrompt = stripNegatedPhysicalClauses(trimmed);
 
+  if (hasAffirmativeFacialRedesign(trimmed)) {
+    issues.push(
+      'البرومبت يطلب إعادة تشكيل ملامح الوجه أو تغيير هوية الصورة المرجعية.'
+    );
+  }
+
   // Check for contradictory statements inside the rendered prompt text
   const mentionsScreenOnly =
     /\b(?:phone\s+screen\s+is\s+the\s+sole\s+active\s+light\s+source|phone\s+screen\s+as\s+the\s+only\s+active\s+light\s+source|phone\s+screen\s+as\s+the\s+sole\s+active\s+light\s+source|lit\s+solely\s+by\s+the\s+smartphone\s+screen|only\s+the\s+phone\s+screen\s+illuminates|phone-screen\s+light\s+alone)\b/i.test(
@@ -6595,6 +6616,9 @@ export function validatePromptOutput(
         typeof parsed.PRIORITIES.Rule_1 !== 'string' ||
         typeof parsed.PRIORITIES.Rule_2 !== 'string' ||
         typeof parsed.SCENE_LIGHTING !== 'string' ||
+        !parsed.POSE_COMPOSITION ||
+        typeof parsed.POSE_COMPOSITION !== 'object' ||
+        Array.isArray(parsed.POSE_COMPOSITION) ||
         !parsed.CAMERA_PIPELINE ||
         typeof parsed.CAMERA_PIPELINE.Device !== 'string' ||
         typeof parsed.CAMERA_PIPELINE.Optics_Physics !== 'string' ||
@@ -6839,6 +6863,56 @@ export function validatePromptOutput(
 
           const activePhoneHand =
             config.mirrorPoseComposition?.phoneHand || normalizedSelections.phoneHand || 'right_hand';
+          const activePhonePosition =
+            config.mirrorPoseComposition?.phonePosition || normalizedSelections.mirrorPhonePosition;
+          const activeTorsoOrientation =
+            config.mirrorPoseComposition?.torsoOrientation || normalizedSelections.mirrorTorsoOrientation;
+          // The typed canonical hand and its textual mechanics must agree with
+          // the normalized user choice; the JSON schema alone is insufficient.
+          if (
+            poseCompObj.phone_hand !== activePhoneHand ||
+            poseCompObj.phone_position !== activePhonePosition ||
+            poseCompObj.torso_orientation !== activeTorsoOrientation
+          ) {
+            issues.push(
+              'تعارض في هندسة المرآة: اليد أو ارتفاع الهاتف أو اتجاه الجذع لا يطابق الإعدادات المختارة.'
+            );
+          }
+
+          const anatomicalHold = String(poseCompObj.anatomical_hand_mechanics || '');
+          const reflectedSide = String(poseCompObj.mirror_reflection_side || '');
+          if (activePhoneHand === 'both_hands') {
+            if (
+              !/\bboth\s+(?:anatomical\s+)?hands\b/i.test(anatomicalHold) ||
+              !/\bboth\s+hands\b/i.test(reflectedSide)
+            ) {
+              issues.push(
+                'تعارض في الإمساك بالهاتف: اختيار كلتا اليدين لا يطابق وصف القبضة أو انعكاسها.'
+              );
+            }
+          } else {
+            const holdingSide = activePhoneHand === 'left_hand' ? 'left' : 'right';
+            const freeSide = activePhoneHand === 'left_hand' ? 'right' : 'left';
+            const selectedHoldPattern = new RegExp(
+              `\\b(?:anatomical\\s+)?${holdingSide}\\s+hand\\b`, 'i'
+            );
+            const reflectionHoldingPattern = new RegExp(
+              `\\banatomical\\s+${holdingSide}\\s+arm\\s+as\\s+the\\s+phone[- ]holding\\s+side\\b`, 'i'
+            );
+            const reflectionFreePattern = new RegExp(
+              `\\banatomical\\s+${freeSide}\\s+arm\\s+as\\s+the\\s+free\\s+side\\b`, 'i'
+            );
+            if (
+              !selectedHoldPattern.test(anatomicalHold) ||
+              !reflectionHoldingPattern.test(reflectedSide) ||
+              !reflectionFreePattern.test(reflectedSide)
+            ) {
+              issues.push(
+                'تعارض في انعكاس المرآة: اليد التشريحية الممسكة بالهاتف واليد الحرة غير متطابقتين مع الإعداد المختار.'
+              );
+            }
+          }
+
           if (activePhoneHand === 'both_hands') {
             if (
               (typeof poseCompObj.free_hand_action === 'string' &&
@@ -7490,11 +7564,36 @@ export function validateReferenceImageInput(input: {
     };
   }
 
-  const cleanedBase64 = rawBase64.includes(',')
-    ? rawBase64.split(',')[1]?.trim() || ''
-    : rawBase64.replace(/\s+/g, '');
+  const cleanedBase64 = (rawBase64.includes(',')
+    ? rawBase64.split(',')[1] || ''
+    : rawBase64
+  ).replace(/\s+/g, '');
 
-  if (!cleanedBase64 || !/^[A-Za-z0-9+/=]+$/.test(cleanedBase64)) {
+  // The reported file size is untrusted: always calculate decoded bytes from
+  // the base64 payload itself before allowing upload to the image model.
+  const declaredBytes =
+    typeof input.sizeBytes === 'number' && input.sizeBytes > 0
+      ? input.sizeBytes
+      : 0;
+  const maxEncodedLength = Math.ceil(MAX_REFERENCE_IMAGE_BYTES / 3) * 4;
+  const tooLargeErrorAr =
+    'حجم الصورة المرجعية يتجاوز الحد الأقصى المسموح به (10 ميجابايت). يرجى اختيار صورة أصغر.';
+
+  // Fast-fail oversized payloads before running the base64 format check.
+  if (cleanedBase64.length > maxEncodedLength || declaredBytes > MAX_REFERENCE_IMAGE_BYTES) {
+    return {
+      includeImage: false,
+      valid: false,
+      errorAr: tooLargeErrorAr,
+    };
+  }
+
+  // Enforce valid base64 groups and end padding (not just allowed characters).
+  if (
+    !cleanedBase64 ||
+    cleanedBase64.length % 4 !== 0 ||
+    !/^[A-Za-z0-9+/]*={0,2}$/.test(cleanedBase64)
+  ) {
     return {
       includeImage: false,
       valid: false,
@@ -7502,18 +7601,19 @@ export function validateReferenceImageInput(input: {
     };
   }
 
-  const estimatedBytes =
-    typeof input.sizeBytes === 'number' && input.sizeBytes > 0
-      ? input.sizeBytes
-      : Math.floor((cleanedBase64.length * 3) / 4);
+  const paddingBytes = cleanedBase64.endsWith('==')
+    ? 2
+    : cleanedBase64.endsWith('=')
+      ? 1
+      : 0;
+  const decodedBytes = (cleanedBase64.length / 4) * 3 - paddingBytes;
 
-  if (estimatedBytes > MAX_REFERENCE_IMAGE_BYTES) {
+  if (decodedBytes > MAX_REFERENCE_IMAGE_BYTES) {
     return {
       includeImage: false,
       valid: false,
-      sizeBytes: estimatedBytes,
-      errorAr:
-        'حجم الصورة المرجعية يتجاوز الحد الأقصى المسموح به (10 ميجابايت). يرجى اختيار صورة أصغر.',
+      sizeBytes: decodedBytes,
+      errorAr: tooLargeErrorAr,
     };
   }
 
@@ -7522,7 +7622,7 @@ export function validateReferenceImageInput(input: {
     valid: true,
     mimeType: rawMime === 'image/jpg' ? 'image/jpeg' : rawMime,
     base64Data: cleanedBase64,
-    sizeBytes: estimatedBytes,
+    sizeBytes: decodedBytes,
   };
 }
 
