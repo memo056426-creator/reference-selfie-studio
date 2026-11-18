@@ -92,7 +92,7 @@ import {
   UpperGarmentPatternType,
   UpperGarmentType,
   XIAOMI_15_ULTRA_LENS_PROFILES,
-} from '../types/selfie';
+} from '../types/selfie.ts';
 import {
   BiomechanicsSolution,
   buildPhoneHandOpticsState,
@@ -107,7 +107,7 @@ import {
   MIRROR_POSE_CATEGORY_LIST,
   MirrorPoseCategoryId,
   solveBiomechanicsAndPhysics,
-} from './physicsEngine';
+} from './physicsEngine.ts';
 
 export {
   CONCISE_REFERENCE_FACE_PRESERVATION_RULE,
