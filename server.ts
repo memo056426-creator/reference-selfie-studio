@@ -404,9 +404,15 @@ async function startServer() {
   // 3. Reference Image Lighting & Environment Compatibility Analysis using gemini-4-hydrogen
   // Strictly avoids inferring age, ethnicity, or sensitive traits per Section 3 rules.
   app.post('/api/gemini/analyze-image', async (req, res) => {
-    const { imageBase64, mimeType, sizeBytes } = req.body || {};
+    const { imageBase64, mimeType, sizeBytes, referenceImageOptIn } = req.body || {};
+    if (referenceImageOptIn !== true) {
+      return res.status(403).json({
+        error: 'يجب الموافقة صراحةً على إرسال الصورة المرجعية للتحليل أولًا.',
+      });
+    }
+
     const check = validateReferenceImageInput({
-      optIn: true,
+      optIn: referenceImageOptIn,
       base64Data: imageBase64,
       mimeType,
       sizeBytes,
