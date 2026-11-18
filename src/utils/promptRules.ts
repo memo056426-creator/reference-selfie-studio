@@ -6072,6 +6072,21 @@ function stripNegatedPhysicalClauses(text: string): string {
 }
 
 /**
+ * Detects positive instructions to change visible reference facial anatomy.
+ * Shared reference-preservation rules are excluded before checking so
+ * prohibitions enumerating disallowed edits cannot create false positives.
+ */
+function hasAffirmativeFacialRedesign(text: string): boolean {
+  const supplementalText = text
+    .replaceAll(REFERENCE_FACE_PRESERVATION_RULE, '')
+    .replaceAll(CONCISE_REFERENCE_FACE_PRESERVATION_RULE, '');
+  const affirmative = stripNegatedPhysicalClauses(supplementalText);
+  return /\b(?:replace|swap|redesign|reshape|reconstruct|alter|modify|change)\s+(?:(?:the|a|an|original|reference|subject's|person's)\s+){0,4}(?:face|nose|jaw(?:line)?|chin|eyes?|hairline|facial\s+(?:features?|geometry|anatomy|structure))\b/i.test(
+    affirmative
+  );
+}
+
+/**
  * Validates that a rendered or model-generated prompt satisfies all required constraints
  * from the normalized StructuredSceneConfig (camera mode, pose, lighting, and clothing edits).
  */
@@ -6530,6 +6545,12 @@ export function validatePromptOutput(
 
   const affirmativePrompt = stripNegatedPhysicalClauses(trimmed);
 
+  if (hasAffirmativeFacialRedesign(trimmed)) {
+    issues.push(
+      'البرومبت يطلب إعادة تشكيل ملامح الوجه أو تغيير هوية الصورة المرجعية.'
+    );
+  }
+
   // Check for contradictory statements inside the rendered prompt text
   const mentionsScreenOnly =
     /\b(?:phone\s+screen\s+is\s+the\s+sole\s+active\s+light\s+source|phone\s+screen\s+as\s+the\s+only\s+active\s+light\s+source|phone\s+screen\s+as\s+the\s+sole\s+active\s+light\s+source|lit\s+solely\s+by\s+the\s+smartphone\s+screen|only\s+the\s+phone\s+screen\s+illuminates|phone-screen\s+light\s+alone)\b/i.test(
@@ -6660,25 +6681,6 @@ export function validatePromptOutput(
         if (!exposureMatches) {
           issues.push(
             'كود JSON لاستوديو المرآة يغفل تفضيل التعريض الضوئي (exposurePreference).'
-          );
-        }
-
-        // Positive instructions to redesign reference facial anatomy must not be
-        // accepted merely because the standard preservation text is also present.
-        // Remove the shared rules first so their "do not change" enumerations
-        // cannot be mistaken for an affirmative edit request.
-        const identityDirectiveText = stripNegatedPhysicalClauses(
-          `${parsed.GEMINI_EXECUTION_RULE} ${parsed.SUBJECT_IDENTITY_LOCK.Structural_Integrity}`
-            .replaceAll(REFERENCE_FACE_PRESERVATION_RULE, '')
-            .replaceAll(CONCISE_REFERENCE_FACE_PRESERVATION_RULE, '')
-        );
-        if (
-          /\b(?:replace|swap|redesign|reshape|reconstruct|alter|modify|change)\s+(?:(?:the|a|an|original|reference|subject's|person's)\s+){0,4}(?:face|nose|jaw(?:line)?|chin|eyes?|hairline|facial\s+(?:features?|geometry|anatomy|structure))\b/i.test(
-            identityDirectiveText
-          )
-        ) {
-          issues.push(
-            'كود JSON لاستوديو المرآة يطلب تغيير هوية الوجه أو إعادة تشكيل ملامحه خلافًا للصورة المرجعية.'
           );
         }
 
