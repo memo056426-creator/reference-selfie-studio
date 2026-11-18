@@ -6595,6 +6595,9 @@ export function validatePromptOutput(
         typeof parsed.PRIORITIES.Rule_1 !== 'string' ||
         typeof parsed.PRIORITIES.Rule_2 !== 'string' ||
         typeof parsed.SCENE_LIGHTING !== 'string' ||
+        !parsed.POSE_COMPOSITION ||
+        typeof parsed.POSE_COMPOSITION !== 'object' ||
+        Array.isArray(parsed.POSE_COMPOSITION) ||
         !parsed.CAMERA_PIPELINE ||
         typeof parsed.CAMERA_PIPELINE.Device !== 'string' ||
         typeof parsed.CAMERA_PIPELINE.Optics_Physics !== 'string' ||
@@ -6657,6 +6660,25 @@ export function validatePromptOutput(
         if (!exposureMatches) {
           issues.push(
             'كود JSON لاستوديو المرآة يغفل تفضيل التعريض الضوئي (exposurePreference).'
+          );
+        }
+
+        // Positive instructions to redesign reference facial anatomy must not be
+        // accepted merely because the standard preservation text is also present.
+        // Remove the shared rules first so their "do not change" enumerations
+        // cannot be mistaken for an affirmative edit request.
+        const identityDirectiveText = stripNegatedPhysicalClauses(
+          `${parsed.GEMINI_EXECUTION_RULE} ${parsed.SUBJECT_IDENTITY_LOCK.Structural_Integrity}`
+            .replaceAll(REFERENCE_FACE_PRESERVATION_RULE, '')
+            .replaceAll(CONCISE_REFERENCE_FACE_PRESERVATION_RULE, '')
+        );
+        if (
+          /\b(?:replace|swap|redesign|reshape|reconstruct|alter|modify|change)\s+(?:(?:the|a|an|original|reference|subject's|person's)\s+){0,4}(?:face|nose|jaw(?:line)?|chin|eyes?|hairline|facial\s+(?:features?|geometry|anatomy|structure))\b/i.test(
+            identityDirectiveText
+          )
+        ) {
+          issues.push(
+            'كود JSON لاستوديو المرآة يطلب تغيير هوية الوجه أو إعادة تشكيل ملامحه خلافًا للصورة المرجعية.'
           );
         }
 
@@ -6839,6 +6861,56 @@ export function validatePromptOutput(
 
           const activePhoneHand =
             config.mirrorPoseComposition?.phoneHand || normalizedSelections.phoneHand || 'right_hand';
+          const activePhonePosition =
+            config.mirrorPoseComposition?.phonePosition || normalizedSelections.mirrorPhonePosition;
+          const activeTorsoOrientation =
+            config.mirrorPoseComposition?.torsoOrientation || normalizedSelections.mirrorTorsoOrientation;
+          // The typed canonical hand and its textual mechanics must agree with
+          // the normalized user choice; the JSON schema alone is insufficient.
+          if (
+            poseCompObj.phone_hand !== activePhoneHand ||
+            poseCompObj.phone_position !== activePhonePosition ||
+            poseCompObj.torso_orientation !== activeTorsoOrientation
+          ) {
+            issues.push(
+              'تعارض في هندسة المرآة: اليد أو ارتفاع الهاتف أو اتجاه الجذع لا يطابق الإعدادات المختارة.'
+            );
+          }
+
+          const anatomicalHold = String(poseCompObj.anatomical_hand_mechanics || '');
+          const reflectedSide = String(poseCompObj.mirror_reflection_side || '');
+          if (activePhoneHand === 'both_hands') {
+            if (
+              !/\bboth\s+(?:anatomical\s+)?hands\b/i.test(anatomicalHold) ||
+              !/\bboth\s+hands\b/i.test(reflectedSide)
+            ) {
+              issues.push(
+                'تعارض في الإمساك بالهاتف: اختيار كلتا اليدين لا يطابق وصف القبضة أو انعكاسها.'
+              );
+            }
+          } else {
+            const holdingSide = activePhoneHand === 'left_hand' ? 'left' : 'right';
+            const freeSide = activePhoneHand === 'left_hand' ? 'right' : 'left';
+            const selectedHoldPattern = new RegExp(
+              `\\b(?:anatomical\\s+)?${holdingSide}\\s+hand\\b`, 'i'
+            );
+            const reflectionHoldingPattern = new RegExp(
+              `\\banatomical\\s+${holdingSide}\\s+arm\\s+as\\s+the\\s+phone[- ]holding\\s+side\\b`, 'i'
+            );
+            const reflectionFreePattern = new RegExp(
+              `\\banatomical\\s+${freeSide}\\s+arm\\s+as\\s+the\\s+free\\s+side\\b`, 'i'
+            );
+            if (
+              !selectedHoldPattern.test(anatomicalHold) ||
+              !reflectionHoldingPattern.test(reflectedSide) ||
+              !reflectionFreePattern.test(reflectedSide)
+            ) {
+              issues.push(
+                'تعارض في انعكاس المرآة: اليد التشريحية الممسكة بالهاتف واليد الحرة غير متطابقتين مع الإعداد المختار.'
+              );
+            }
+          }
+
           if (activePhoneHand === 'both_hands') {
             if (
               (typeof poseCompObj.free_hand_action === 'string' &&
