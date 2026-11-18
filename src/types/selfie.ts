@@ -1,7 +1,7 @@
 import type {
   BiomechanicsSolution,
   LockedFieldConflict,
-} from '../utils/physicsEngine';
+} from '../utils/physicsEngine.ts';
 
 export type WorkflowMode = 'strict_editing' | 'scene_builder' | 'mirror_studio';
 
