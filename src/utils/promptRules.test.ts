@@ -917,6 +917,36 @@ Let me know if you need anything else!`;
     expect(oversized.errorAr).toContain('10 ميجابايت');
   });
 
+  it('rejects oversized or malformed reference payloads even when file size metadata is forged', () => {
+    // This data is larger than 10 MiB after decoding, regardless of the client size hint.
+    const oversizedData = 'A'.repeat(4 * Math.ceil((MAX_REFERENCE_IMAGE_BYTES + 1) / 3));
+    const forgedSmallSize = validateReferenceImageInput({
+      optIn: true,
+      base64Data: oversizedData,
+      mimeType: 'image/png',
+      sizeBytes: 1,
+    });
+    expect(forgedSmallSize.valid).toBe(false);
+    expect(forgedSmallSize.includeImage).toBe(false);
+    expect(forgedSmallSize.errorAr).toContain('10 ميجابايت');
+
+    const invalidPadding = validateReferenceImageInput({
+      optIn: true,
+      base64Data: 'AAAA====',
+      mimeType: 'image/png',
+    });
+    expect(invalidPadding.valid).toBe(false);
+
+    const oneByteImagePayload = validateReferenceImageInput({
+      optIn: true,
+      base64Data: 'data:image/png;base64,AQ==',
+      mimeType: 'image/png',
+      sizeBytes: 999,
+    });
+    expect(oneByteImagePayload.valid).toBe(true);
+    expect(oneByteImagePayload.sizeBytes).toBe(1);
+  });
+
   it('sanitizes reference-image analysis so uncertain facts become unknown and sensitive traits or device specs are never inferred', () => {
     const rawNoisyAnalysis = {
       setting: 'indoor',
