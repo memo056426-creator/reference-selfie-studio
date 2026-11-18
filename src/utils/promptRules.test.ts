@@ -66,6 +66,45 @@ import {
 } from './promptRules';
 
 describe('Prompt Generation Utils', () => {
+  it('prioritizes protected source-face editing in every generator format', () => {
+    const scene = buildDeterministicEnglishPrompt({
+      ...DEFAULT_SELECTIONS,
+      workflowMode: 'scene_builder',
+    });
+    expect(scene).toContain('Edit the supplied reference photograph, not a newly imagined lookalike.');
+    expect(scene).toContain('protected, non-target region');
+    expect(validatePromptOutput(scene, {
+      ...DEFAULT_SELECTIONS,
+      workflowMode: 'scene_builder',
+    }).valid).toBe(true);
+
+    const strictSelections = {
+      ...DEFAULT_SELECTIONS,
+      workflowMode: 'strict_editing' as const,
+      strictOutputFormat: 'concise_prompt' as const,
+    };
+    const strict = buildDeterministicEnglishPrompt(strictSelections);
+    expect(strict).toContain('protected, non-target region');
+    expect(validatePromptOutput(strict, strictSelections).valid).toBe(true);
+
+    const full = buildDeterministicEnglishPrompt({
+      ...strictSelections,
+      strictOutputFormat: 'full_12_rules',
+    });
+    expect(full).toContain('treat visible facial regions as protected from regeneration');
+
+    const mirrorSelections = {
+      ...DEFAULT_SELECTIONS,
+      workflowMode: 'mirror_studio' as const,
+    };
+    const mirror = JSON.parse(buildMirrorStudioJsonPrompt(mirrorSelections));
+    expect(mirror.SUBJECT_IDENTITY_LOCK.Structural_Integrity).toContain(
+      'treat visible facial regions as protected from regeneration'
+    );
+    expect(mirror.GEMINI_EXECUTION_RULE).toContain('protected, non-target region');
+    expect(validatePromptOutput(JSON.stringify(mirror), mirrorSelections).valid).toBe(true);
+  });
+
   it('blocks reference-face replacement across Scene Builder and Strict Editing while allowing protected expression changes', () => {
     for (const mode of ['scene_builder', 'strict_editing'] as const) {
       const selections: SelfieSelections = {
