@@ -119,6 +119,7 @@ export const ReferenceImageSection: React.FC<ReferenceImageSectionProps> = ({
         body: JSON.stringify({
           imageBase64,
           mimeType: imageMimeType,
+          referenceImageOptIn: true,
         }),
       });
       const data = await response.json();
